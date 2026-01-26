@@ -12,10 +12,16 @@ import '../../features/tasks/presentation/task_create_screen.dart';
 import '../../features/projects/presentation/project_list_screen.dart';
 import '../../features/projects/presentation/project_detail_screen.dart';
 
+import '../../features/splash/presentation/splash_screen.dart';
+
 final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/dashboard',

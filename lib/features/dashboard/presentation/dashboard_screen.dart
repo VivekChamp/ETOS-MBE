@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/app_colors.dart';
 import '../data/dashboard_repository.dart';
+import '../../auth/data/auth_repository.dart';
 
 final userInfoProvider = FutureProvider.autoDispose<Map<String, dynamic>>((
   ref,
@@ -44,14 +45,22 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       userInfoAsync.when(
-                        data: (info) => Text(
-                          "Hello, ${info['full_name']?.toString().split(' ')[0] ?? 'User'}",
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1D1B20),
-                          ),
-                        ),
+                        data: (info) {
+                          // DEBUG: Print user info to debug console
+                          debugPrint('🔍 [DASHBOARD] User Data: $info');
+                          debugPrint(
+                            '🔍 [DASHBOARD] Employee Info: ${info['employee_info']}',
+                          );
+
+                          return Text(
+                            "Hello, ${info['full_name']?.toString().split(' ')[0] ?? 'User'}",
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1D1B20),
+                            ),
+                          );
+                        },
                         loading: () => const Text(
                           "Loading...",
                           style: TextStyle(fontSize: 26),
@@ -63,16 +72,60 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  Container(
-                    width: 45,
-                    height: 45,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.notifications_none,
-                      color: Colors.black87,
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text("Logout"),
+                          content: const Text(
+                            "Are you sure you want to logout?",
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                Navigator.pop(dialogContext); // Close dialog
+
+                                try {
+                                  // Attempt logout but don't block navigation if it fails/hangs
+                                  await ref
+                                      .read(authRepositoryProvider)
+                                      .logout()
+                                      .timeout(const Duration(seconds: 2));
+                                } catch (e) {
+                                  debugPrint("Logout error or timeout: $e");
+                                } finally {
+                                  // Use the PARENT context (DashboardScreen's context) for navigation
+                                  // It remains mounted even after dialog is closed
+                                  if (context.mounted) {
+                                    context.go('/login');
+                                  }
+                                }
+                              },
+                              child: const Text(
+                                "Logout",
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 45,
+                      height: 45,
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.logout_rounded,
+                        color: Colors.red.shade700,
+                      ),
                     ),
                   ),
                 ],
@@ -238,15 +291,20 @@ class DashboardScreen extends ConsumerWidget {
                     const Color(0xFF33691E), // Dark Green
                     () => context.push('/tasks'),
                   ),
-                  _buildModuleCard(
-                    context,
-                    "Profile",
-                    "Settings",
-                    Icons.person,
-                    const Color(0xFFF3E5F5), // Light Purple
-                    const Color(0xFF4A148C), // Dark Purple
-                    () => context.push('/profile'),
-                  ),
+                  // Show Profile ONLY if 'employee_id' exists (Actual Employees)
+                  // - 'tharun' (Employee) has 'employee_id' => Shows Profile
+                  // - 'Administrator' (Admin) does NOT have 'employee_id' => Hides Profile
+                  if (userInfoAsync.value != null &&
+                      userInfoAsync.value!['employee_id'] != null)
+                    _buildModuleCard(
+                      context,
+                      "Profile",
+                      "Settings",
+                      Icons.person,
+                      const Color(0xFFF3E5F5), // Light Purple
+                      const Color(0xFF4A148C), // Dark Purple
+                      () => context.push('/profile'),
+                    ),
                 ],
               ).animate().fadeIn(delay: 200.ms),
             ),

@@ -68,17 +68,27 @@ class AuthRepository {
 
   Future<void> logout() async {
     try {
-      // Call logout endpoint
-      await _dio.get('/api/method/logout');
-    } catch (e) {
-      // Continue even if API fails
-    }
+      print('🔵 [LOGOUT] Starting logout process...');
 
-    // Clear all cookies to ensure session is cleaned
-    try {
-      await _cookieJar.deleteAll();
+      // 1. Call standard ERPNext logout
+      try {
+        await _dio.get('/api/method/logout');
+        print('✅ [LOGOUT] ERPNext logout call successful');
+      } catch (e) {
+        print(
+          '⚠️ [LOGOUT] ERPNext logout API call failed (might already be logged out): $e',
+        );
+      }
     } catch (e) {
-      print("Error clearing cookies: $e");
+      print('🔴 [LOGOUT] Error during logout process: $e');
+    } finally {
+      // 2. ALWAYS Clear Cookies (Crucial)
+      try {
+        await _cookieJar.deleteAll();
+        print('✅ [LOGOUT] Cookies cleared successfully');
+      } catch (e) {
+        print("🔴 [LOGOUT] Error clearing cookies: $e");
+      }
     }
   }
 }
