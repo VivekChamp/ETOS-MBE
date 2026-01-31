@@ -5,7 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:e_scooter/core/constants/app_colors.dart';
 import '../data/task_repository.dart';
 import '../domain/task_model.dart';
-import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 // Notifiers
 class TaskSearchNotifier extends Notifier<String> {
@@ -87,190 +87,514 @@ class TaskListScreen extends ConsumerWidget {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // Filters
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                DropdownButton<String>(
-                  value: selectedPriority,
-                  underline: const SizedBox(),
-                  items: ['All', 'Low', 'Medium', 'High']
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(e == 'All' ? 'Priorities' : e),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null)
-                      ref.read(taskPriorityProvider.notifier).set(v);
-                  },
-                  hint: const Text("Priority"),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text("All"),
-                  selected: selectedStatus == 'All',
-                  onSelected: (_) =>
-                      ref.read(taskStatusProvider.notifier).set('All'),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text("Open"),
-                  selected: selectedStatus == 'Open',
-                  onSelected: (_) =>
-                      ref.read(taskStatusProvider.notifier).set('Open'),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text("Working"),
-                  selected: selectedStatus == 'Working',
-                  onSelected: (_) =>
-                      ref.read(taskStatusProvider.notifier).set('Working'),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text("Completed"),
-                  selected: selectedStatus == 'Completed',
-                  onSelected: (_) =>
-                      ref.read(taskStatusProvider.notifier).set('Completed'),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text("Overdue"),
-                  selected: selectedStatus == 'Overdue',
-                  onSelected: (_) =>
-                      ref.read(taskStatusProvider.notifier).set('Overdue'),
-                ),
-              ],
-            ),
-          ),
+      body: tasksAsync.when(
+        data: (tasks) {
+          // Calculate stats
+          final totalTasks = tasks.length;
+          final openTasks = tasks.where((t) => t.status == 'Open').length;
+          final workingTasks = tasks.where((t) => t.status == 'Working').length;
+          final completedTasks = tasks
+              .where((t) => t.status == 'Completed')
+              .length;
+          final overdueTasks = tasks.where((t) => t.status == 'Overdue').length;
 
-          Expanded(
-            child: tasksAsync.when(
-              data: (tasks) {
-                if (tasks.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.assignment_turned_in_outlined,
-                          size: 48,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "No tasks found",
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ],
-                    ),
-                  );
-                }
+          // Priority counts
+          final highPriority = tasks
+              .where((t) => t.priority == 'High' || t.priority == 'Urgent')
+              .length;
+          final mediumPriority = tasks
+              .where((t) => t.priority == 'Medium')
+              .length;
+          final lowPriority = tasks.where((t) => t.priority == 'Low').length;
 
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: tasks.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final task = tasks[index];
-                    return Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey.shade200),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        leading: Container(
-                          width: 4,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: _getPriorityColor(task.priority),
-                            borderRadius: BorderRadius.circular(2),
+          // Owner counts
+          final Map<String, int> ownerCounts = {};
+          for (var t in tasks) {
+            ownerCounts[t.owner] = (ownerCounts[t.owner] ?? 0) + 1;
+          }
+          final sortedOwners = ownerCounts.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+
+          return CustomScrollView(
+            slivers: [
+              // Dashboard Section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "Task Overview",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        title: Text(
-                          task.subject,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(
-                                      task.status,
-                                    ).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    task.status,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              "Total: $totalTasks",
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Stats Row
+                      Row(
+                        children: [
+                          _buildStatCard(
+                            "Open",
+                            openTasks.toString(),
+                            Colors.orange,
+                            Icons.pending_actions,
+                          ),
+                          _buildStatCard(
+                            "Working",
+                            workingTasks.toString(),
+                            Colors.blue,
+                            Icons.bolt,
+                          ),
+                          _buildStatCard(
+                            "Done",
+                            completedTasks.toString(),
+                            Colors.green,
+                            Icons.check_circle,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Charts Row
+                      Row(
+                        children: [
+                          // Status Pie Chart
+                          Expanded(
+                            flex: 1,
+                            child: Container(
+                              height: 180,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Column(
+                                children: [
+                                  const Text(
+                                    "Status",
                                     style: TextStyle(
-                                      color: _getStatusColor(task.status),
-                                      fontSize: 10,
                                       fontWeight: FontWeight.bold,
+                                      fontSize: 12,
                                     ),
                                   ),
-                                ),
-                                const Spacer(),
-                                Icon(
-                                  Icons.calendar_today,
-                                  size: 12,
-                                  color: Colors.grey,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  task.expEndDate ?? 'No Date',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
+                                  const SizedBox(height: 10),
+                                  Expanded(
+                                    child: totalTasks == 0
+                                        ? const Center(
+                                            child: Text(
+                                              "No Data",
+                                              style: TextStyle(fontSize: 10),
+                                            ),
+                                          )
+                                        : PieChart(
+                                            PieChartData(
+                                              sectionsSpace: 2,
+                                              centerSpaceRadius: 25,
+                                              sections: [
+                                                if (openTasks > 0)
+                                                  PieChartSectionData(
+                                                    value: openTasks.toDouble(),
+                                                    color: Colors.orange,
+                                                    title: '',
+                                                    radius: 12,
+                                                  ),
+                                                if (workingTasks > 0)
+                                                  PieChartSectionData(
+                                                    value: workingTasks
+                                                        .toDouble(),
+                                                    color: Colors.blue,
+                                                    title: '',
+                                                    radius: 12,
+                                                  ),
+                                                if (completedTasks > 0)
+                                                  PieChartSectionData(
+                                                    value: completedTasks
+                                                        .toDouble(),
+                                                    color: Colors.green,
+                                                    title: '',
+                                                    radius: 12,
+                                                  ),
+                                                if (overdueTasks > 0)
+                                                  PieChartSectionData(
+                                                    value: overdueTasks
+                                                        .toDouble(),
+                                                    color: Colors.red,
+                                                    title: '',
+                                                    radius: 12,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Priority distribution
+                          Expanded(
+                            flex: 1,
+                            child: Container(
+                              height: 180,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "Priority",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildPriorityBar(
+                                    "High",
+                                    highPriority,
+                                    totalTasks,
+                                    Colors.red,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildPriorityBar(
+                                    "Medium",
+                                    mediumPriority,
+                                    totalTasks,
+                                    Colors.orange,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildPriorityBar(
+                                    "Low",
+                                    lowPriority,
+                                    totalTasks,
+                                    Colors.green,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Users Section
+                      const Text(
+                        "Tasks by User",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 60,
+                        child: sortedOwners.isEmpty
+                            ? const Center(child: Text("No user data"))
+                            : ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: sortedOwners.length,
+                                itemBuilder: (context, index) {
+                                  final entry = sortedOwners[index];
+                                  final userName = entry.key.split('@')[0];
+                                  return Container(
+                                    width: 100,
+                                    margin: const EdgeInsets.only(right: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.grey.shade200,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          userName,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          "${entry.value} Tasks",
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Filters (Horizontal)
+              SliverToBoxAdapter(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      DropdownButton<String>(
+                        value: selectedPriority,
+                        underline: const SizedBox(),
+                        items: ['All', 'Low', 'Medium', 'High']
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e,
+                                child: Text(e == 'All' ? 'Priorities' : e),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null)
+                            ref.read(taskPriorityProvider.notifier).set(v);
+                        },
+                        hint: const Text("Priority"),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text("All"),
+                        selected: selectedStatus == 'All',
+                        onSelected: (_) =>
+                            ref.read(taskStatusProvider.notifier).set('All'),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text("Open"),
+                        selected: selectedStatus == 'Open',
+                        onSelected: (_) =>
+                            ref.read(taskStatusProvider.notifier).set('Open'),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text("Working"),
+                        selected: selectedStatus == 'Working',
+                        onSelected: (_) => ref
+                            .read(taskStatusProvider.notifier)
+                            .set('Working'),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text("Completed"),
+                        selected: selectedStatus == 'Completed',
+                        onSelected: (_) => ref
+                            .read(taskStatusProvider.notifier)
+                            .set('Completed'),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text("Overdue"),
+                        selected: selectedStatus == 'Overdue',
+                        onSelected: (_) => ref
+                            .read(taskStatusProvider.notifier)
+                            .set('Overdue'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Task List
+              tasks.isEmpty
+                  ? const SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.assignment_turned_in_outlined,
+                              size: 48,
+                              color: Colors.grey,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              "No tasks found",
+                              style: TextStyle(fontSize: 16), // Adjusted style
                             ),
                           ],
                         ),
-                        trailing: const Icon(
-                          Icons.chevron_right,
-                          color: Colors.grey,
-                        ),
-                        onTap: () {
-                          context.push('/tasks/${task.name}');
-                        },
                       ),
-                    ).animate().fadeIn(delay: (index * 50).ms);
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, stack) => Center(child: Text('Error: $e')),
-            ),
-          ),
-        ],
+                    )
+                  : SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final task = tasks[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Card(
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(color: Colors.grey.shade200),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                leading: Container(
+                                  width: 4,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: _getPriorityColor(task.priority),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                title: Text(
+                                  task.subject,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  task.status,
+                                  style: TextStyle(
+                                    color: _getStatusColor(task.status),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                trailing: const Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.grey,
+                                  size: 20,
+                                ),
+                                onTap: () {
+                                  context.push('/tasks/${task.name}');
+                                },
+                              ),
+                            ).animate().fadeIn(delay: (index * 50).ms),
+                          );
+                        }, childCount: tasks.length),
+                      ),
+                    ),
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, stack) => Center(child: Text('Error: $e')),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/tasks/create'),
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
+    );
+  }
+
+  Widget _buildStatCard(
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, color: color.withOpacity(0.8)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriorityBar(String label, int count, int total, Color color) {
+    final double percentage = total > 0 ? count / total : 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 11)),
+            Text(
+              count.toString(),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(
+            value: percentage,
+            backgroundColor: color.withOpacity(0.1),
+            color: color,
+            minHeight: 6,
+          ),
+        ),
+      ],
     );
   }
 
