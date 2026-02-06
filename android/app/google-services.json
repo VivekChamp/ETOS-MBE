@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1099259155923",
+    "project_id": "etos-40b8f",
+    "storage_bucket": "etos-40b8f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1099259155923:android:8dff135755ade21c64cb26",
+        "android_client_info": {
+          "package_name": "org.vpsbusinessolutions.e_scooter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4-ENl3l00LdhvFCjcA3S575nHov0urOQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

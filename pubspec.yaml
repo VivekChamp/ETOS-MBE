@@ -49,6 +49,9 @@ dependencies:
   url_launcher: ^6.3.2
   percent_indicator: ^4.2.5
   fl_chart: ^1.1.1
+  firebase_core: ^3.10.1
+  firebase_messaging: ^15.2.1
+  flutter_local_notifications: ^18.0.1
 
 dev_dependencies:
   flutter_test:

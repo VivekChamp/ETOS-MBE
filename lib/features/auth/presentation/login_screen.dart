@@ -7,10 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_text_field.dart';
-import '../../../core/storage/local_storage.dart';
 import '../data/auth_repository.dart';
 
 import '../../../core/network/dio_client.dart';
+import '../../../core/services/notification_service.dart';
 
 // Providers
 final loginControllerProvider = AsyncNotifierProvider<LoginController, void>(
@@ -44,6 +44,16 @@ class LoginController extends AsyncNotifier<void> {
 
       final authRepo = ref.read(authRepositoryProvider);
       await authRepo.login(username, password);
+
+      // Fetch and Update FCM Token
+      try {
+        final token = await NotificationService.getToken();
+        if (token != null) {
+          await authRepo.updateDeviceToken(token);
+        }
+      } catch (e) {
+        print('Error updating device token: $e');
+      }
     });
   }
 }

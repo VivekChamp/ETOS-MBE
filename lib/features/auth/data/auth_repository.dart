@@ -66,6 +66,19 @@ class AuthRepository {
     }
   }
 
+  Future<void> updateDeviceToken(String token) async {
+    try {
+      print('🔵 [DEVICE TOKEN] Updating token: $token');
+      final response = await _dio.post(
+        '/api/method/$_customApiPath.update_device_token',
+        data: {'token': token},
+      );
+      print('🟢 [DEVICE TOKEN] Response: ${response.data}');
+    } catch (e) {
+      print('🔴 [DEVICE TOKEN] Error updating token: $e');
+    }
+  }
+
   Future<void> logout() async {
     try {
       print('🔵 [LOGOUT] Starting logout process...');
